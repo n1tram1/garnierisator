@@ -10,8 +10,12 @@ use nom::{
         terminated,
         tuple,
         preceded,
+        pair,
     },
-    multi::many1,
+    multi::{
+        many1,
+        many0,
+    },
     character::complete::{
         anychar,
         space0,
@@ -20,6 +24,7 @@ use nom::{
         alpha1,
         space1,
         digit1,
+        one_of,
     },
     character::{
         is_alphanumeric,
@@ -30,6 +35,7 @@ use nom::{
         alt,
         permutation,
     },
+    combinator::opt,
 };
 
 pub fn parse(_input: &str) -> Blif {
@@ -90,9 +96,37 @@ fn parse_names(input: &str) -> IResult<&str, Result<LogicGate, &'static str>, Ve
         })
 }
 
+fn parse_single_output_cover(input: &str) -> IResult<&str, (Vec<InputValue>, InputValue), VerboseError<&str>> {
+    context(
+        "single-output-cover",
+        pair(
+            opt(
+                terminated(
+                    many0(one_of("01-")),
+                    space1
+                )
+            ),
+            one_of("01")
+        )
+    )(input)
+        .map(|(next_input, res)| {
+            let (maybe_inputs, output) = res;
+
+            let inputs = maybe_inputs.map_or(vec![], |inputs| {
+                inputs
+                    .iter()
+                    .map(|x| InputValue::try_from(x).unwrap())
+                    .collect()
+            });
+            let output = InputValue::try_from(output).unwrap();
+
+            (next_input, (inputs, output))
+        })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parser::{parse_name, parse_names};
+    use super::parser::{parse_name, parse_names, parse_single_output_cover};
     use super::{LogicGateBuilder, InputValue};
 
     #[test]
@@ -160,5 +194,47 @@ mod tests {
             .build();
 
         assert_eq!(logic_gate, Ok(("", expected)));
+    }
+
+    #[test]
+    fn test_parse_single_output_cover_one_output_1() {
+        let single_output_cover = parse_single_output_cover("1");
+
+        assert_eq!(single_output_cover, Ok(("", (vec![], InputValue::Uncomplemented))));
+    }
+
+    #[test]
+    fn test_parse_single_output_cover_one_output_0() {
+        let single_output_cover = parse_single_output_cover("0");
+
+        assert_eq!(single_output_cover, Ok(("", (vec![], InputValue::Complemented))));
+    }
+
+    #[test]
+    fn test_parse_single_output_cover_one_input_one_output_01() {
+        let single_output_cover = parse_single_output_cover("0 1");
+
+        assert_eq!(single_output_cover, Ok(("", (vec![InputValue::Complemented], InputValue::Uncomplemented))));
+    }
+
+    #[test]
+    fn test_parse_single_output_cover_one_input_one_output_11() {
+        let single_output_cover = parse_single_output_cover("1 1");
+
+        assert_eq!(single_output_cover, Ok(("", (vec![InputValue::Uncomplemented], InputValue::Uncomplemented))));
+    }
+
+    #[test]
+    fn test_parse_single_output_cover_multiple_inputs_one_output() {
+        let single_output_cover = parse_single_output_cover("1-01 1");
+
+        let inputs = vec![
+            InputValue::Uncomplemented,
+            InputValue::NotUsed,
+            InputValue::Complemented,
+            InputValue::Uncomplemented,
+        ];
+
+        assert_eq!(single_output_cover, Ok(("", (inputs, InputValue::Uncomplemented))));
     }
 }

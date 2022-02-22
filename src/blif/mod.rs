@@ -12,6 +12,27 @@ enum InputValue {
     NotUsed,
 }
 
+impl std::convert::TryFrom<char> for InputValue {
+    type Error = &'static str;
+
+    fn try_from(c: char) -> Result<Self, Self::Error> {
+        match c {
+            '1' => Ok(Self::Uncomplemented),
+            '0' => Ok(Self::Complemented),
+            '-' => Ok(Self::NotUsed),
+            _ => Err("expected [0|1|-] to create a InputValue"),
+        }
+    }
+}
+
+impl std::convert::TryFrom<&char> for InputValue {
+    type Error = &'static str;
+
+    fn try_from(c: &char) -> Result<Self, Self::Error> {
+        Self::try_from(*c)
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct LogicGate {
     inputs: Vec<String>,
