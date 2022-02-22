@@ -3,5 +3,5 @@
 mod blif;
 
 fn main() {
-    blif::parse("");
+    blif::parser::parse("");
 }
