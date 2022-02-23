@@ -11,10 +11,12 @@ use nom::{
         tuple,
         preceded,
         pair,
+        delimited,
     },
     multi::{
         many1,
         many0,
+        separated_list1,
     },
     character::complete::{
         anychar,
@@ -128,7 +130,7 @@ fn parse_single_output_cover(input: &str) -> IResult<&str, (Vec<InputValue>, Inp
         })
 }
 
-fn parse_logic_gate(input: &str) -> IResult<&str, Result<LogicGate, &'static str>, VerboseError<&str>> {
+fn parse_logic_gate(input: &str) -> IResult<&str, LogicGate, VerboseError<&str>> {
     let mut builder = LogicGateBuilder::new();
 
     context(
@@ -156,14 +158,76 @@ fn parse_logic_gate(input: &str) -> IResult<&str, Result<LogicGate, &'static str
             });
 
 
+            // TODO: remove unwrap, we should emit a parser error if this fails.
+            (next_input, builder.build().unwrap())
+        })
+}
+
+fn parse_model_name(input: &str) -> IResult<&str, String, VerboseError<&str>> {
+    context(
+        "model-name",
+        delimited(
+            terminated(tag(".model"), space1),
+            parse_name, char('\n'))
+    )(input)
+}
+
+fn parse_decl_list(input: &str) -> IResult<&str, Vec<String>, VerboseError<&str>> {
+    context(
+        "decl-list",
+        terminated(
+            many1(parse_name),
+            char('\n')
+        )
+    )(input)
+}
+
+fn parse_model_inputs(input: &str) -> IResult<&str, Vec<String>, VerboseError<&str>> {
+    context(
+        "model-name",
+        preceded(
+            terminated(tag(".inputs"), space1),
+            parse_decl_list)
+    )(input)
+}
+
+fn parse_model_outputs(input: &str) -> IResult<&str, Vec<String>, VerboseError<&str>> {
+    context(
+        "model-name",
+        preceded(
+            terminated(tag(".outputs"), space1),
+            parse_decl_list
+        )
+    )(input)
+}
+
+fn parse_model(input: &str) -> IResult<&str, Model, VerboseError<&str>> {
+    context(
+        "model",
+        terminated(
+            tuple((
+                parse_model_name,
+                parse_model_inputs,
+                parse_model_outputs,
+                many0(parse_logic_gate),
+            )),
+            terminated(tag(".end"), char('\n'))
+        )
+    )(input)
+        .map(|(next_input, (name, inputs, outputs, gates))| {
+            let mut builder = ModelBuilder::new(&name)
+                .add_inputs(inputs)
+                .add_outputs(outputs)
+                .add_logic_gates(gates);
+
             (next_input, builder.build())
         })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::parser::{parse_name, parse_names, parse_single_output_cover, parse_logic_gate};
-    use super::{LogicGateBuilder, InputValue};
+    use super::parser::{parse_name, parse_names, parse_single_output_cover, parse_logic_gate, parse_model};
+    use super::{InputValue, LogicGateBuilder, ModelBuilder};
 
     #[test]
     fn test_parse_name_simple() {
@@ -273,7 +337,7 @@ mod tests {
             .add_input("in1")
             .add_input("in2")
             .set_output("out1")
-            .build();
+            .build().unwrap();
 
         assert_eq!(logic_gate, Ok(("", expected)));
     }
@@ -297,8 +361,53 @@ mod tests {
             .add_truth_value(vec![InputValue::Uncomplemented, InputValue::NotUsed])
             .add_truth_value(vec![InputValue::NotUsed, InputValue::NotUsed])
             .add_truth_value(vec![InputValue::Complemented, InputValue::Uncomplemented])
-            .build();
+            .build().unwrap();
 
         assert_eq!(logic_gate, Ok(("", expected)));
+    }
+
+    #[test]
+    fn test_parse_model_inputs_outputs() {
+        let model = parse_model(concat!(
+            ".model test\n",
+            ".inputs a b\n",
+            ".outputs o\n",
+            ".end\n",
+        ));
+
+        let expected = ModelBuilder::new("test")
+            .add_input("a")
+            .add_input("b")
+            .add_output("o")
+            .build();
+
+        assert_eq!(model, Ok(("", expected)));
+    }
+
+    #[test]
+    fn test_parse_model() {
+        let model = parse_model(concat!(
+            ".model test\n",
+            ".inputs a b\n",
+            ".outputs o\n",
+            "\n",
+            ".names a b o\n",
+            "11 1\n",
+            ".end\n",
+        ));
+
+        let expected = ModelBuilder::new("test")
+            .add_input("a")
+            .add_input("b")
+            .add_output("o")
+            .add_logic_gate(
+                LogicGateBuilder::new()
+                    .add_input("a")
+                    .add_input("b")
+                    .set_output("o")
+                    .add_truth_value(
+                        vec![InputValue::Uncomplemented, InputValue::Uncomplemented]
+                    ).build().unwrap()
+            ).build();
     }
 }
