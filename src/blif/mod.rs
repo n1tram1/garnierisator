@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 pub mod parser;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 enum InputValue {
     /// "1"
     Uncomplemented,
@@ -40,6 +40,7 @@ pub struct LogicGate {
     truth_values: HashSet<Vec<InputValue>>,
 }
 
+#[derive(PartialEq, Debug)]
 pub struct LogicGateBuilder {
     inputs: Vec<String>,
     output: Option<String>,
