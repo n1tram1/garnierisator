@@ -1,5 +1,7 @@
 use super::*;
 
+use super::logic_gate;
+
 use nom::{
     IResult,
     error::{
