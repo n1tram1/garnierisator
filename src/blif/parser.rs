@@ -40,15 +40,15 @@ use nom::{
 
 pub fn parse(_input: &str) -> Blif {
     let lut1 = LogicGateBuilder::new()
-        .add_io("i_A")
-        .add_io("Y")
-        .add_io("o_led")
+        .add_input("i_A")
+        .add_input("Y")
+        .set_output("o_led")
         .add_truth_value(vec![InputValue::Uncomplemented, InputValue::Uncomplemented])
         .build().unwrap();
 
     let lut2 = LogicGateBuilder::new()
-        .add_io("i_B")
-        .add_io("Y")
+        .add_input("i_B")
+        .set_output("Y")
         .add_truth_value(vec![InputValue::Complemented])
         .build().unwrap();
 
@@ -87,10 +87,15 @@ fn parse_names(input: &str) -> IResult<&str, Result<LogicGate, &'static str>, Ve
 
     context(
         "names",
-        preceded(tuple((tag(".names"), space1)), many1(parse_name))
+        preceded(
+            tuple((tag(".names"), space1)),
+            many1(parse_name)
+        )
     )(input)
         .map(|(next_input, res)| {
-            let mut builder = res.iter().fold(builder, |b, io| b.add_io(io));
+
+            builder = res[0..res.len()-1].iter().fold(builder, |b, input| b.add_input(input));
+            builder = builder.set_output(&res.last().unwrap());
 
             (next_input, builder.build())
         })
@@ -151,12 +156,12 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_one_weird_name() {
+    fn test_parse_names_one_weird_name() {
         let logic_gate = parse_names(".names $undef.tmp0");
 
 
         let mut expected = LogicGateBuilder::new()
-            .add_io("$undef.tmp0")
+            .set_output("$undef.tmp0")
             .build();
 
         assert_eq!(logic_gate, Ok(("", expected)));
@@ -175,8 +180,8 @@ mod tests {
 
 
         let mut expected = LogicGateBuilder::new()
-            .add_io("i_B")
-            .add_io("Y")
+            .add_input("i_B")
+            .set_output("Y")
             .build();
 
         assert_eq!(logic_gate, Ok(("", expected)));
@@ -188,9 +193,9 @@ mod tests {
 
 
         let mut expected = LogicGateBuilder::new()
-            .add_io("i_B")
-            .add_io("Y$tmp.1")
-            .add_io("$tmp.8")
+            .add_input("i_B")
+            .add_input("Y$tmp.1")
+            .set_output("$tmp.8")
             .build();
 
         assert_eq!(logic_gate, Ok(("", expected)));
