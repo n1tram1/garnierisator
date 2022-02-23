@@ -82,9 +82,7 @@ fn parse_name(input: &str) -> IResult<&str, String, VerboseError<&str>> {
         .map(|(next_input, res)| (next_input, res.into()))
 }
 
-fn parse_names(input: &str) -> IResult<&str, Result<LogicGate, &'static str>, VerboseError<&str>> {
-    let mut builder = LogicGateBuilder::new();
-
+fn parse_names(input: &str) -> IResult<&str, (Vec<String>, String), VerboseError<&str>> {
     context(
         "names",
         preceded(
@@ -92,12 +90,12 @@ fn parse_names(input: &str) -> IResult<&str, Result<LogicGate, &'static str>, Ve
             many1(parse_name)
         )
     )(input)
-        .map(|(next_input, res)| {
+        .map(|(next_input, mut res)| {
 
-            builder = res[0..res.len()-1].iter().fold(builder, |b, input| b.add_input(input));
-            builder = builder.set_output(&res.last().unwrap());
+            let output = res.pop().unwrap();
+            let inputs = res;
 
-            (next_input, builder.build())
+            (next_input, (inputs, output))
         })
 }
 
@@ -160,9 +158,7 @@ mod tests {
         let logic_gate = parse_names(".names $undef.tmp0");
 
 
-        let mut expected = LogicGateBuilder::new()
-            .set_output("$undef.tmp0")
-            .build();
+        let expected = (vec![], String::from("$undef.tmp0"));
 
         assert_eq!(logic_gate, Ok(("", expected)));
     }
@@ -178,11 +174,7 @@ mod tests {
     fn test_parse_names_two_elements() {
         let logic_gate = parse_names(".names i_B Y");
 
-
-        let mut expected = LogicGateBuilder::new()
-            .add_input("i_B")
-            .set_output("Y")
-            .build();
+        let expected = (vec![String::from("i_B")], String::from("Y"));
 
         assert_eq!(logic_gate, Ok(("", expected)));
     }
@@ -191,12 +183,10 @@ mod tests {
     fn test_parse_names_three_elements_weird_name() {
         let logic_gate = parse_names(".names i_B Y$tmp.1 $tmp.8");
 
-
-        let mut expected = LogicGateBuilder::new()
-            .add_input("i_B")
-            .add_input("Y$tmp.1")
-            .set_output("$tmp.8")
-            .build();
+        let expected = (
+            vec![String::from("i_B"), String::from("Y$tmp.1")],
+            String::from("$tmp.8")
+        );
 
         assert_eq!(logic_gate, Ok(("", expected)));
     }
