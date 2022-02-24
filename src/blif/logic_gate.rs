@@ -69,3 +69,43 @@ impl LogicGateBuilder {
         Ok(logic_gate)
     }
 }
+
+use crate::simulation::{Simulable, SignalState, Signal, Signals};
+
+fn apply(input_values: &Vec<InputValue>, signals: &Vec<SignalState>) -> bool {
+    for (i, s) in std::iter::zip(input_values, signals) {
+        if i == &InputValue::Complemented && s == &SignalState::High {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+impl Simulable for LogicGate {
+    fn stim(&self, signals: Signals) -> Signals {
+        let bound_signals = self.inputs.iter().fold(Vec::new(), |mut bound, input_name| {
+            let value = signals.get(input_name);
+
+            bound.push(value);
+
+            bound
+        });
+
+        let mut output = Signal::new(&self.output);
+        output.set_low();
+
+        for (row_inputs, row_output) in &self.truth_table {
+            if apply(&row_inputs, &bound_signals) {
+                if row_output == &InputValue::Uncomplemented  {
+                    output.set_high();
+                }
+            }
+        }
+
+        let mut outputs = Signals::new();
+        outputs.add_signal(output);
+
+        outputs
+    }
+}

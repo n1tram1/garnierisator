@@ -8,7 +8,7 @@ use logic_gate::LogicGateBuilder;
 pub mod parser;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-enum InputValue {
+pub enum InputValue {
     /// "1"
     Uncomplemented,
     /// "0"
@@ -90,7 +90,7 @@ impl ModelBuilder {
         self
     }
 
-    pub fn add_logic_gates(mut self, gates: Vec<LogicGate>) -> Self {
+    pub fn add_logic_gates(self, gates: Vec<LogicGate>) -> Self {
         gates.into_iter().fold(self, |b, gate| b.add_logic_gate(gate))
     }
 
