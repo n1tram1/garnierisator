@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::InputValue;
 
 type InputVariables = Vec<InputValue>;
@@ -49,7 +47,7 @@ impl LogicGateBuilder {
         self.truth_table.iter().find(|(inputs, _output)| inputs.len() != width).is_none()
     }
 
-    pub fn build(mut self) -> Result<LogicGate, &'static str> {
+    pub fn build(self) -> Result<LogicGate, &'static str> {
         if self.output.is_none() {
             return Err("logic gates must have at least one output");
         }
@@ -114,7 +112,7 @@ impl Simulable for LogicGate {
 #[cfg(test)]
 mod tests {
     use super::{LogicGateBuilder, LogicGate, InputValue};
-    use crate::simulation::{Simulable, SignalState, Signal, Signals, SignalsBuilder};
+    use crate::simulation::{Simulable, SignalState, SignalsBuilder};
 
     lazy_static::lazy_static! {
         static ref AND_GATE: LogicGate = LogicGateBuilder::new()

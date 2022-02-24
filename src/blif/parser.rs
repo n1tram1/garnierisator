@@ -1,7 +1,5 @@
 use super::*;
 
-use super::logic_gate;
-
 use nom::{
     IResult,
     error::{
@@ -18,28 +16,15 @@ use nom::{
     multi::{
         many1,
         many0,
-        separated_list1,
     },
     character::complete::{
-        anychar,
-        multispace1,
         space0,
-        alphanumeric1,
         char,
-        alpha1,
         space1,
-        digit1,
         one_of,
     },
-    character::{
-        is_alphanumeric,
-        is_hex_digit,
-    },
+    character::is_alphanumeric,
     bytes::complete::{tag, take_while1},
-    branch::{
-        alt,
-        permutation,
-    },
     combinator::opt,
 };
 
@@ -214,7 +199,7 @@ fn parse_model(input: &str) -> IResult<&str, Model, VerboseError<&str>> {
         )
     )(input)
         .map(|(next_input, (name, inputs, outputs, gates))| {
-            let mut builder = ModelBuilder::new(&name)
+            let builder = ModelBuilder::new(&name)
                 .add_inputs(inputs)
                 .add_outputs(outputs)
                 .add_logic_gates(gates);
