@@ -2,18 +2,20 @@ use std::collections::HashSet;
 
 use super::InputValue;
 
+type InputVariables = Vec<InputValue>;
+
 #[derive(Debug, PartialEq)]
 pub struct LogicGate {
     inputs: Vec<String>,
     output: String,
-    truth_values: HashSet<Vec<InputValue>>,
+    truth_table: Vec<(InputVariables, InputValue)>,
 }
 
 #[derive(PartialEq, Debug)]
 pub struct LogicGateBuilder {
     inputs: Vec<String>,
     output: Option<String>,
-    truth_values: Vec<Vec<InputValue>>,
+    truth_table: Vec<(InputVariables, InputValue)>,
 }
 
 impl LogicGateBuilder {
@@ -21,7 +23,7 @@ impl LogicGateBuilder {
         Self {
             inputs: Vec::new(),
             output: None,
-            truth_values: Vec::new(),
+            truth_table: Vec::new(),
         }
     }
 
@@ -37,14 +39,14 @@ impl LogicGateBuilder {
         self
     }
 
-    pub fn add_truth_value(mut self, input_plane: Vec<InputValue>) -> Self {
-        self.truth_values.push(input_plane);
+    pub fn add_truth_table_row(mut self, row: (InputVariables, InputValue)) -> Self {
+        self.truth_table.push(row);
 
         self
     }
 
     fn all_truth_values_have_width(&self, width: usize) -> bool {
-        self.truth_values.iter().find(|row| row.len() != width).is_none()
+        self.truth_table.iter().find(|(inputs, _output)| inputs.len() != width).is_none()
     }
 
     pub fn build(mut self) -> Result<LogicGate, &'static str> {
@@ -58,12 +60,10 @@ impl LogicGateBuilder {
             return Err("input plane must be of the same width as the amount of inputs");
         }
 
-        let truth_values: HashSet<Vec<InputValue>> = HashSet::from_iter(self.truth_values);
-
         let logic_gate = LogicGate {
             inputs: self.inputs,
             output: self.output.unwrap(),
-            truth_values,
+            truth_table: self.truth_table,
         };
 
         Ok(logic_gate)

@@ -48,14 +48,18 @@ pub fn parse(_input: &str) -> Blif {
         .add_input("i_A")
         .add_input("Y")
         .set_output("o_led")
-        .add_truth_value(vec![InputValue::Uncomplemented, InputValue::Uncomplemented])
-        .build().unwrap();
+        .add_truth_table_row((
+            vec![InputValue::Uncomplemented, InputValue::Uncomplemented],
+            InputValue::Uncomplemented
+        )).build().unwrap();
 
     let lut2 = LogicGateBuilder::new()
         .add_input("i_B")
         .set_output("Y")
-        .add_truth_value(vec![InputValue::Complemented])
-        .build().unwrap();
+        .add_truth_table_row((
+            vec![InputValue::Complemented],
+            InputValue::Uncomplemented
+        )).build().unwrap();
 
     Blif {
         models: vec![
@@ -152,13 +156,8 @@ fn parse_logic_gate(input: &str) -> IResult<&str, LogicGate, VerboseError<&str>>
             builder = builder.set_output(&output_name);
 
             builder = single_output_cover.iter().fold(builder, |b, (inputs, output)| {
-                if *output == InputValue::Uncomplemented {
-                    b.add_truth_value(inputs.clone())
-                } else {
-                    b
-                }
+                b.add_truth_table_row((inputs.clone(), output.clone()))
             });
-
 
             // TODO: remove unwrap, we should emit a parser error if this fails.
             (next_input, builder.build().unwrap())
@@ -359,10 +358,10 @@ mod tests {
             .add_input("a")
             .add_input("b")
             .set_output("o")
-            .add_truth_value(vec![InputValue::Complemented, InputValue::NotUsed])
-            .add_truth_value(vec![InputValue::Uncomplemented, InputValue::NotUsed])
-            .add_truth_value(vec![InputValue::NotUsed, InputValue::NotUsed])
-            .add_truth_value(vec![InputValue::Complemented, InputValue::Uncomplemented])
+            .add_truth_table_row((vec![InputValue::Complemented, InputValue::NotUsed], InputValue::Uncomplemented))
+            .add_truth_table_row((vec![InputValue::Uncomplemented, InputValue::NotUsed], InputValue::Uncomplemented))
+            .add_truth_table_row((vec![InputValue::NotUsed, InputValue::NotUsed], InputValue::Uncomplemented))
+            .add_truth_table_row((vec![InputValue::Complemented, InputValue::Uncomplemented], InputValue::Uncomplemented))
             .build().unwrap();
 
         assert_eq!(logic_gate, Ok(("", expected)));
@@ -407,9 +406,10 @@ mod tests {
                     .add_input("a")
                     .add_input("b")
                     .set_output("o")
-                    .add_truth_value(
-                        vec![InputValue::Uncomplemented, InputValue::Uncomplemented]
-                    ).build().unwrap()
+                    .add_truth_table_row((
+                        vec![InputValue::Uncomplemented, InputValue::Uncomplemented],
+                        InputValue::Uncomplemented
+                    )).build().unwrap()
             ).build();
     }
 }
