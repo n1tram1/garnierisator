@@ -42,3 +42,16 @@ impl std::convert::TryFrom<&char> for InputValue {
 pub struct Blif {
     models: Vec<Model>,
 }
+
+use crate::simulation::{Simulable, Signals};
+
+impl Simulable for Blif {
+    fn stim(&self, inputs: Signals) -> Signals {
+        self.models.iter().fold(inputs, |mut signals, module| {
+            let outputs = module.stim(signals.clone());
+            signals.update_with(outputs);
+
+            signals
+        })
+    }
+}

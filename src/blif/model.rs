@@ -66,3 +66,56 @@ impl ModelBuilder {
     }
 }
 
+use crate::simulation::{Simulable, Signals};
+
+impl Simulable for Model {
+    fn stim(&self, inputs: Signals) -> Signals {
+        self.gates.iter().fold(inputs, |mut signals, gate| {
+            let output = gate.stim(signals.clone());
+            signals.update_with(output);
+
+            signals
+        })
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use crate::blif::{InputValue, ModelBuilder, LogicGateBuilder};
+    use crate::simulation::{SignalState, SignalsBuilder, Simulable};
+
+    #[test]
+    fn test_model_not2() {
+        let not2 = ModelBuilder::new("not2")
+            .add_input("a")
+            .add_input("b")
+            .add_output("o_a")
+            .add_output("o_b")
+            .add_logic_gate(
+                LogicGateBuilder::new()
+                    .add_input("a")
+                    .set_output("o_a")
+                    .add_truth_table_row((
+                        vec![InputValue::Complemented], InputValue::Uncomplemented,
+                    )).build().unwrap())
+            .add_logic_gate(
+                LogicGateBuilder::new()
+                    .add_input("b")
+                    .set_output("o_b")
+                    .add_truth_table_row((
+                        vec![InputValue::Complemented], InputValue::Uncomplemented,
+                    )).build().unwrap()
+            ).build();
+
+        let res = not2.stim(
+            SignalsBuilder::new()
+                .add_signal("a", SignalState::Low)
+                .add_signal("b", SignalState::High)
+                .build()
+        );
+
+        assert_eq!(res.get("o_a"), SignalState::High);
+        assert_eq!(res.get("o_b"), SignalState::Low);
+    }
+}

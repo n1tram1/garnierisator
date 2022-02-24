@@ -1,5 +1,10 @@
 use std::collections::HashMap;
 
+#[derive(Debug, Clone)]
+pub enum SimulationError {
+    SignalDoesntExist(String)
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum SignalState {
     High,
@@ -7,6 +12,7 @@ pub enum SignalState {
     Unknown,
 }
 
+#[derive(PartialEq, Clone, Debug)]
 pub struct Signal {
     name: String,
     state: SignalState,
@@ -29,6 +35,7 @@ impl Signal {
     }
 }
 
+#[derive(PartialEq, Clone, Debug)]
 pub struct Signals {
     signals: HashMap<String, Signal>,
 }
@@ -45,6 +52,16 @@ impl Signals {
             signal.name.clone(),
             signal
         );
+    }
+
+    pub fn update_with(&mut self, other: Signals) {
+        for (name, signal) in other.signals.into_iter() {
+            if let Some(value) =  self.signals.get_mut(&name) {
+                *value = signal;
+            } else {
+                self.signals.insert(name, signal);
+            }
+        }
     }
 
     pub fn get(&self, name: &str) -> SignalState {
