@@ -74,7 +74,8 @@ use crate::simulation::{Simulable, SignalState, Signal, Signals};
 
 fn apply(input_values: &Vec<InputValue>, signals: &Vec<SignalState>) -> bool {
     for (i, s) in std::iter::zip(input_values, signals) {
-        if i == &InputValue::Complemented && s == &SignalState::High {
+        if i == &InputValue::Complemented && s == &SignalState::High ||
+            i == &InputValue::Uncomplemented && s == &SignalState::Low {
             return false;
         }
     }
@@ -108,4 +109,95 @@ impl Simulable for LogicGate {
 
         outputs
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{LogicGateBuilder, LogicGate, InputValue};
+    use crate::simulation::{Simulable, SignalState, Signal, Signals, SignalsBuilder};
+
+    lazy_static::lazy_static! {
+        static ref AND_GATE: LogicGate = LogicGateBuilder::new()
+            .add_input("a")
+            .add_input("b")
+            .set_output("y")
+            .add_truth_table_row((
+                vec![InputValue::Uncomplemented, InputValue::Uncomplemented],
+                InputValue::Uncomplemented
+            )).build().unwrap();
+
+        static ref NOT_GATE: LogicGate = LogicGateBuilder::new()
+            .add_input("a")
+            .set_output("y")
+            .add_truth_table_row((
+                vec![InputValue::Complemented], InputValue::Uncomplemented
+            )).build().unwrap();
+    }
+
+    #[test]
+    fn test_not_0() {
+        let simulation = NOT_GATE.stim(
+            SignalsBuilder::new()
+                .add_signal("a", SignalState::Low)
+                .build()
+        );
+
+        assert_eq!(simulation.get("y"), SignalState::High);
+    }
+
+    #[test]
+    fn test_not_1() {
+        let simulation = NOT_GATE.stim(
+            SignalsBuilder::new()
+                .add_signal("a", SignalState::High)
+                .build()
+        );
+
+        assert_eq!(simulation.get("y"), SignalState::Low);
+    }
+
+    #[test]
+    fn test_and_gate_00() {
+        let simulation = AND_GATE.stim(
+            SignalsBuilder::new()
+                .add_signal("a", SignalState::Low)
+                .add_signal("b", SignalState::Low)
+                .build()
+        );
+        assert_eq!(simulation.get("y"), SignalState::Low);
+    }
+
+    #[test]
+    fn test_and_gate_01() {
+        let simulation = AND_GATE.stim(
+            SignalsBuilder::new()
+                .add_signal("a", SignalState::Low)
+                .add_signal("b", SignalState::High)
+                .build()
+        );
+        assert_eq!(simulation.get("y"), SignalState::Low);
+    }
+
+    #[test]
+    fn test_and_gate_10() {
+        let simulation = AND_GATE.stim(
+            SignalsBuilder::new()
+                .add_signal("a", SignalState::High)
+                .add_signal("b", SignalState::Low)
+                .build()
+        );
+        assert_eq!(simulation.get("y"), SignalState::Low);
+    }
+
+    #[test]
+    fn test_and_gate_11() {
+        let simulation = AND_GATE.stim(
+            SignalsBuilder::new()
+                .add_signal("a", SignalState::High)
+                .add_signal("b", SignalState::High)
+                .build()
+        );
+        assert_eq!(simulation.get("y"), SignalState::High);
+    }
+
 }
