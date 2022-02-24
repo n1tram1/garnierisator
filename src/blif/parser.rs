@@ -63,15 +63,13 @@ pub fn parse(_input: &str) -> Blif {
 
     Blif {
         models: vec![
-            Model {
-                name: String::from("blinky"),
-                inputs: vec![String::from("i_A"), String::from("i_B")],
-                outputs: vec![String::from("o_led")],
-
-                gates: vec![
-                    lut1, lut2,
-                ],
-            },
+            ModelBuilder::new("blinky")
+                .add_input("i_A")
+                .add_input("i_B")
+                .add_output("o_led")
+                .add_logic_gate(lut1)
+                .add_logic_gate(lut2)
+                .build()
         ],
     }
 }
