@@ -28,37 +28,6 @@ use nom::{
     combinator::opt,
 };
 
-pub fn parse(_input: &str) -> Blif {
-    let lut1 = LogicGateBuilder::new()
-        .add_input("i_A")
-        .add_input("Y")
-        .set_output("o_led")
-        .add_truth_table_row((
-            vec![InputValue::Uncomplemented, InputValue::Uncomplemented],
-            InputValue::Uncomplemented
-        )).build().unwrap();
-
-    let lut2 = LogicGateBuilder::new()
-        .add_input("i_B")
-        .set_output("Y")
-        .add_truth_table_row((
-            vec![InputValue::Complemented],
-            InputValue::Uncomplemented
-        )).build().unwrap();
-
-    Blif {
-        models: vec![
-            ModelBuilder::new("blinky")
-                .add_input("i_A")
-                .add_input("i_B")
-                .add_output("o_led")
-                .add_logic_gate(lut1)
-                .add_logic_gate(lut2)
-                .build()
-        ],
-    }
-}
-
 fn is_valid_name_char(c: char) -> bool {
     is_alphanumeric(c as u8) || c == '_' || c == '.' || c == '$'
 }
@@ -207,6 +176,25 @@ fn parse_model(input: &str) -> IResult<&str, Model, VerboseError<&str>> {
             (next_input, builder.build())
         })
 }
+
+fn parse_blif(input: &str) -> IResult<&str, Blif, VerboseError<&str>> {
+    context(
+        "blif",
+        many1(parse_model)
+    )(input)
+        .map(|(next_input, models)| {
+            let blif = Blif { models };
+
+            (next_input, blif)
+        })
+}
+
+pub fn parse(input: &str) -> Blif {
+    let (_, blif) = parse_blif(input).unwrap();
+
+    blif
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -374,7 +362,6 @@ mod tests {
             ".model test\n",
             ".inputs a b\n",
             ".outputs o\n",
-            "\n",
             ".names a b o\n",
             "11 1\n",
             ".end\n",
@@ -394,5 +381,7 @@ mod tests {
                         InputValue::Uncomplemented
                     )).build().unwrap()
             ).build();
+
+        assert_eq!(model, Ok(("", expected)));
     }
 }
