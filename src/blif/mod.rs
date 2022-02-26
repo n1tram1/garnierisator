@@ -52,8 +52,6 @@ impl Simulable for Blif {
     }
 
     fn children(&self) -> Vec<Box<dyn Simulable>> {
-        self.models.iter().map(|x| {
-            Box::new(x.clone()) as Box<dyn Simulable>
-        }).collect()
+        vec![Box::new(self.models.last().unwrap().clone())]
     }
 }
