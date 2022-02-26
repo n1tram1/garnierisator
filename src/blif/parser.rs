@@ -1,4 +1,7 @@
-use super::*;
+use super::logic_gate::{InputValue, LogicGate};
+use super::Model;
+use super::Blif;
+
 
 use nom::{
     IResult,
@@ -7,25 +10,28 @@ use nom::{
         context,
     },
     sequence::{
+        preceded,
+        delimited,
         terminated,
         tuple,
-        preceded,
         pair,
-        delimited,
     },
     multi::{
-        many1,
         many0,
+        many1,
     },
-    character::complete::{
-        space0,
-        char,
-        space1,
-        one_of,
+    bytes::complete::{
+        take_while1,
     },
     character::is_alphanumeric,
-    bytes::complete::{tag, take_while1},
+    character::complete::{
+        space0,
+        space1,
+        one_of,
+        char,
+    },
     combinator::opt,
+    bytes::complete::tag,
 };
 
 fn is_valid_name_char(c: char) -> bool {
@@ -89,8 +95,6 @@ fn parse_single_output_cover(input: &str) -> IResult<&str, (Vec<InputValue>, Inp
 }
 
 fn parse_logic_gate(input: &str) -> IResult<&str, LogicGate, VerboseError<&str>> {
-    let mut builder = LogicGateBuilder::new();
-
     context(
         "logic-gate",
         pair(
@@ -104,15 +108,9 @@ fn parse_logic_gate(input: &str) -> IResult<&str, LogicGate, VerboseError<&str>>
     )(input)
         .map(|(next_input, (names, single_output_cover))| {
             let (input_names, output_name) = names;
-            builder = input_names.iter().fold(builder, |b, input| b.add_input(input));
-            builder = builder.set_output(&output_name);
 
-            builder = single_output_cover.iter().fold(builder, |b, (inputs, output)| {
-                b.add_truth_table_row((inputs.clone(), output.clone()))
-            });
-
-            // TODO: remove unwrap, we should emit a parser error if this fails.
-            (next_input, builder.build().unwrap())
+            let gate = LogicGate::new(input_names, output_name, single_output_cover);
+            (next_input, gate)
         })
 }
 
@@ -168,12 +166,12 @@ fn parse_model(input: &str) -> IResult<&str, Model, VerboseError<&str>> {
         )
     )(input)
         .map(|(next_input, (name, inputs, outputs, gates))| {
-            let builder = ModelBuilder::new(&name)
-                .add_inputs(inputs)
-                .add_outputs(outputs)
-                .add_logic_gates(gates);
-
-            (next_input, builder.build())
+            (next_input, Model {
+                    name,
+                    inputs,
+                    outputs,
+                    gates,
+            })
         })
 }
 
@@ -183,9 +181,7 @@ fn parse_blif(input: &str) -> IResult<&str, Blif, VerboseError<&str>> {
         many1(parse_model)
     )(input)
         .map(|(next_input, models)| {
-            let blif = Blif { models };
-
-            (next_input, blif)
+            (next_input, Blif::new(models))
         })
 }
 
@@ -195,11 +191,9 @@ pub fn parse(input: &str) -> Blif {
     blif
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::parser::{parse_name, parse_names, parse_single_output_cover, parse_logic_gate, parse_model};
-    use super::{InputValue, LogicGateBuilder, ModelBuilder};
+    use super::*;
 
     #[test]
     fn test_parse_name_simple() {
@@ -305,11 +299,11 @@ mod tests {
     fn test_parse_logic_gate_just_names() {
         let logic_gate = parse_logic_gate(".names in1 in2 out1");
 
-        let expected = LogicGateBuilder::new()
-            .add_input("in1")
-            .add_input("in2")
-            .set_output("out1")
-            .build().unwrap();
+        let expected = LogicGate::new(
+            vec!["in1".into(), "in2".into()],
+            "out1".into(),
+            Vec::new(),
+        );
 
         assert_eq!(logic_gate, Ok(("", expected)));
     }
@@ -325,15 +319,16 @@ mod tests {
     fn test_parse_logic_gate() {
         let logic_gate = parse_logic_gate(".names a b o\n0- 1\n1- 1\n-- 1\n01 1\n");
 
-        let expected = LogicGateBuilder::new()
-            .add_input("a")
-            .add_input("b")
-            .set_output("o")
-            .add_truth_table_row((vec![InputValue::Complemented, InputValue::NotUsed], InputValue::Uncomplemented))
-            .add_truth_table_row((vec![InputValue::Uncomplemented, InputValue::NotUsed], InputValue::Uncomplemented))
-            .add_truth_table_row((vec![InputValue::NotUsed, InputValue::NotUsed], InputValue::Uncomplemented))
-            .add_truth_table_row((vec![InputValue::Complemented, InputValue::Uncomplemented], InputValue::Uncomplemented))
-            .build().unwrap();
+        let expected = LogicGate::new(
+            vec!["a".into(), "b".into()],
+            "o".into(),
+            vec![
+                (vec![InputValue::Complemented, InputValue::NotUsed], InputValue::Uncomplemented),
+                (vec![InputValue::Uncomplemented, InputValue::NotUsed], InputValue::Uncomplemented),
+                (vec![InputValue::NotUsed, InputValue::NotUsed], InputValue::Uncomplemented),
+                (vec![InputValue::Complemented, InputValue::Uncomplemented], InputValue::Uncomplemented),
+            ],
+        );
 
         assert_eq!(logic_gate, Ok(("", expected)));
     }
@@ -347,11 +342,12 @@ mod tests {
             ".end\n",
         ));
 
-        let expected = ModelBuilder::new("test")
-            .add_input("a")
-            .add_input("b")
-            .add_output("o")
-            .build();
+        let expected = Model::new(
+            "test".into(),
+            vec!["a".into(), "b".into()],
+            vec!["o".into()],
+            Vec::new(),
+        );
 
         assert_eq!(model, Ok(("", expected)));
     }
@@ -367,20 +363,16 @@ mod tests {
             ".end\n",
         ));
 
-        let expected = ModelBuilder::new("test")
-            .add_input("a")
-            .add_input("b")
-            .add_output("o")
-            .add_logic_gate(
-                LogicGateBuilder::new()
-                    .add_input("a")
-                    .add_input("b")
-                    .set_output("o")
-                    .add_truth_table_row((
-                        vec![InputValue::Uncomplemented, InputValue::Uncomplemented],
-                        InputValue::Uncomplemented
-                    )).build().unwrap()
-            ).build();
+        let expected = Model {
+            name: "test".into(),
+            inputs: vec!["a".into(), "b".into()],
+            outputs: vec!["o".into()],
+            gates: vec![
+                LogicGate { inputs: vec!["a".into(), "b".into()], output: "o".into(), single_output_cover: vec![
+                    (vec![InputValue::Uncomplemented, InputValue::Uncomplemented], InputValue::Uncomplemented),
+                ]},
+            ],
+        };
 
         assert_eq!(model, Ok(("", expected)));
     }
