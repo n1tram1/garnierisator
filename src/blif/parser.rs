@@ -29,7 +29,7 @@ use nom::{
 };
 
 fn is_valid_name_char(c: char) -> bool {
-    is_alphanumeric(c as u8) || c == '_' || c == '.' || c == '$'
+    is_alphanumeric(c as u8) || c == '_' || c == '.' || c == '$' || c == '/' || c == ':'
 }
 
 fn parse_name(input: &str) -> IResult<&str, String, VerboseError<&str>> {
