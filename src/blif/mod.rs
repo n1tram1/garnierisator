@@ -43,15 +43,17 @@ pub struct Blif {
     models: Vec<Model>,
 }
 
-use crate::simulation::{Simulable, Signals};
+use std::collections::HashSet;
+use crate::simulation::Simulable ;
 
 impl Simulable for Blif {
-    fn stim(&self, inputs: Signals) -> Signals {
-        self.models.iter().fold(inputs, |mut signals, module| {
-            let outputs = module.stim(signals.clone());
-            signals.update_with(outputs);
+    fn get_inputs(&self) -> HashSet<String> {
+        unimplemented!()
+    }
 
-            signals
-        })
+    fn children(&self) -> Vec<Box<dyn Simulable>> {
+        self.models.iter().map(|x| {
+            Box::new(x.clone()) as Box<dyn Simulable>
+        }).collect()
     }
 }

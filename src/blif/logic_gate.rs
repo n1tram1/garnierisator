@@ -2,7 +2,7 @@ use super::InputValue;
 
 type InputVariables = Vec<InputValue>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LogicGate {
     inputs: Vec<String>,
     output: String,
@@ -81,7 +81,17 @@ fn apply(input_values: &Vec<InputValue>, signals: &Vec<SignalState>) -> bool {
     return true;
 }
 
+use std::collections::HashSet;
+
 impl Simulable for LogicGate {
+    fn get_inputs(&self) -> HashSet<String> {
+        self.inputs.clone().into_iter().collect()
+    }
+
+    fn children(&self) -> Vec<Box<dyn Simulable>> {
+        unimplemented!();
+    }
+
     fn stim(&self, signals: Signals) -> Signals {
         let bound_signals = self.inputs.iter().fold(Vec::new(), |mut bound, input_name| {
             let value = signals.get(input_name);

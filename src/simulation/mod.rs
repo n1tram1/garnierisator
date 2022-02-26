@@ -1,17 +1,11 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
-pub enum SimulationError {
-    SignalDoesntExist(String)
-}
-
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum SignalState {
     High,
     Low,
     Unknown,
 }
-
 #[derive(PartialEq, Clone, Debug)]
 pub struct Signal {
     name: String,
@@ -70,6 +64,10 @@ impl Signals {
             None => SignalState::Unknown,
         }
     }
+
+    pub fn iter(&self) -> impl Iterator<Item=&Signal> {
+        self.signals.iter().map(|(_key, value)| value)
+    }
 }
 
 pub struct SignalsBuilder {
@@ -97,6 +95,28 @@ impl SignalsBuilder {
     }
 }
 
+use std::collections::HashSet;
+
 pub trait Simulable {
-    fn stim(&self, inputs: Signals) -> Signals;
+    fn get_inputs(&self) -> HashSet<String>;
+    fn children(&self) -> Vec<Box<dyn Simulable>>;
+
+    fn filter_for(&self, child: &dyn Simulable, signals: &Signals) -> Signals {
+        signals
+            .iter()
+            .filter(|signal| child.get_inputs().contains(&signal.name))
+            .fold(SignalsBuilder::new(), |builder, signal| {
+                builder.add_signal(&signal.name, signal.state)
+            }).build()
+    }
+
+    fn stim(&self, inputs: Signals) -> Signals {
+        self.children().into_iter().fold(inputs, |mut signals, child| {
+            let child_inputs = self.filter_for(&(*child), &signals);
+
+            signals.update_with(child.stim(child_inputs));
+
+            signals
+        })
+    }
 }

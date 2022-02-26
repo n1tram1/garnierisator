@@ -1,6 +1,6 @@
 use super::LogicGate;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Model {
     name: String,
     inputs: Vec<String>,
@@ -66,16 +66,18 @@ impl ModelBuilder {
     }
 }
 
-use crate::simulation::{Simulable, Signals};
+use std::collections::HashSet;
+use crate::simulation::Simulable;
 
 impl Simulable for Model {
-    fn stim(&self, inputs: Signals) -> Signals {
-        self.gates.iter().fold(inputs, |mut signals, gate| {
-            let output = gate.stim(signals.clone());
-            signals.update_with(output);
+    fn get_inputs(&self) -> HashSet<String> {
+        self.inputs.clone().into_iter().collect()
+    }
 
-            signals
-        })
+    fn children(&self) -> Vec<Box<dyn Simulable>> {
+        self.gates.iter().map(|x| {
+            Box::new(x.clone()) as Box<dyn Simulable>
+        }).collect()
     }
 }
 
