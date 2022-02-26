@@ -1,57 +1,13 @@
 mod logic_gate;
-use logic_gate::LogicGateBuilder;
 pub use logic_gate::LogicGate;
+#[cfg(test)]
+pub use logic_gate::InputValue;
 
 mod model;
-use model::ModelBuilder;
 pub use model::Model;
 
-pub mod parser;
+mod blif;
+pub use blif::Blif;
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum InputValue {
-    /// "1"
-    Uncomplemented,
-    /// "0"
-    Complemented,
-    /// "-"
-    NotUsed,
-}
-
-impl std::convert::TryFrom<char> for InputValue {
-    type Error = &'static str;
-
-    fn try_from(c: char) -> Result<Self, Self::Error> {
-        match c {
-            '1' => Ok(Self::Uncomplemented),
-            '0' => Ok(Self::Complemented),
-            '-' => Ok(Self::NotUsed),
-            _ => Err("expected [0|1|-] to create a InputValue"),
-        }
-    }
-}
-
-impl std::convert::TryFrom<&char> for InputValue {
-    type Error = &'static str;
-
-    fn try_from(c: &char) -> Result<Self, Self::Error> {
-        Self::try_from(*c)
-    }
-}
-
-pub struct Blif {
-    models: Vec<Model>,
-}
-
-use std::collections::HashSet;
-use crate::simulation::Simulable ;
-
-impl Simulable for Blif {
-    fn get_inputs(&self) -> HashSet<String> {
-        unimplemented!()
-    }
-
-    fn children(&self) -> Vec<Box<dyn Simulable>> {
-        vec![Box::new(self.models.last().unwrap().clone())]
-    }
-}
+mod parser;
+pub use parser::parse;
